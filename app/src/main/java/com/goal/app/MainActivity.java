@@ -18,7 +18,10 @@ public class MainActivity extends Activity {
     String lang="fa", today, dailyMotivation;
     boolean dark=false;
     JSONArray goals, tasks, activities, transactions, debts, assets;
-    int blue=Color.rgb(91,105,255);\n    int purple=Color.rgb(142,76,255);\n    int cyan=Color.rgb(54,190,255);\n    int surface=Color.rgb(27,35,67);
+    int blue=Color.rgb(91,105,255);
+    int purple=Color.rgb(142,76,255);
+    int cyan=Color.rgb(54,190,255);
+    int surface=Color.rgb(27,35,67);
 
     int dp(int n){ return (int)(n*getResources().getDisplayMetrics().density); }
     String tr(String fa,String en){ return lang.equals("fa")?fa:en; }
