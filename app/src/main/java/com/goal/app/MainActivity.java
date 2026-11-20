@@ -8,6 +8,7 @@ import android.view.*;
 import android.widget.*;
 import org.json.*;
 import java.text.SimpleDateFormat;
+import java.text.DateFormat;
 import java.util.*;
 
 public class MainActivity extends Activity {
@@ -21,6 +22,7 @@ public class MainActivity extends Activity {
     int dp(int n){ return (int)(n*getResources().getDisplayMetrics().density); }
     String tr(String fa,String en){ return lang.equals("fa")?fa:en; }
     String date(){ return new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date()); }
+    String persianDate(){ return DateFormat.getDateInstance(DateFormat.FULL,Locale.forLanguageTag("fa-IR-u-ca-persian")).format(new Date()); }
     int bg(){ return dark?Color.rgb(22,27,38):Color.rgb(246,248,253); }
     int fg(){ return dark?Color.WHITE:Color.rgb(35,45,65); }
 
@@ -63,6 +65,8 @@ public class MainActivity extends Activity {
         setup("Goal ✦");
         content.addView(text(tr("به Goal خوش آمدی!","Welcome to Goal!"),21));
         content.addView(text(tr("قدم‌های کوچک امروز، موفقیت‌های بزرگ فردا.","Small steps today, big achievements tomorrow."),15));
+        content.addView(text("📆  "+persianDate(),15));
+        content.addView(button("🗓️  "+tr("تقویم شمسی","Persian calendar"),()->calendarPage()));
         content.addView(button("🎯  "+tr("اهداف من","My Goals"),()->goalPage()));
         content.addView(button("📅  "+tr("برنامه امروز","Today's Plan"),()->taskPage()));
         content.addView(button("⭐  "+tr("فعالیت‌های من","My Activities"),()->activityPage()));
@@ -71,6 +75,29 @@ public class MainActivity extends Activity {
         content.addView(button("⚙️  "+tr("تنظیمات","Settings"),()->settings()));
         int done=0;for(int i=0;i<tasks.length();i++)if(tasks.optJSONObject(i)!=null&&tasks.optJSONObject(i).optBoolean("done"))done++;
         content.addView(text(tr("کارهای انجام‌شده امروز: ","Tasks completed today: ")+done+" / "+tasks.length(),14));
+    }
+    void calendarPage(){
+        setup(tr("تقویم شمسی","Persian calendar"));
+        content.addView(text(tr("تاریخ‌ها بر پایه تقویم هجری شمسی نمایش داده می‌شوند.","Dates are displayed using the Solar Hijri calendar."),15));
+        try{
+            java.util.Locale persian=java.util.Locale.forLanguageTag("fa-IR-u-ca-persian");
+            android.content.res.Configuration config=new android.content.res.Configuration(getResources().getConfiguration());
+            config.setLocale(persian);
+            Context localized=createConfigurationContext(config);
+            DatePicker picker=new DatePicker(localized);
+            picker.setCalendarViewShown(true);
+            picker.setSpinnersShown(false);
+            LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);
+            params.setMargins(0,dp(10),0,dp(10));
+            content.addView(picker,params);
+            TextView selected=text(tr("تاریخ انتخاب‌شده: ","Selected date: ")+persianDate(),16);
+            content.addView(selected);
+            picker.init(picker.getYear(),picker.getMonth(),picker.getDayOfMonth(),(view,year,month,day)->{
+                java.text.NumberFormat nf=java.text.NumberFormat.getIntegerInstance(persian);
+                selected.setText(tr("تاریخ انتخاب‌شده: ","Selected date: ")+nf.format(year)+"/"+nf.format(month+1)+"/"+nf.format(day));
+            });
+        }catch(Exception e){content.addView(text(persianDate(),18));}
+        back();
     }
     void goalPage(){
         setup(tr("اهداف من","My Goals"));content.addView(button("+ "+tr("هدف جدید","New goal"),()->goalDialog()));
