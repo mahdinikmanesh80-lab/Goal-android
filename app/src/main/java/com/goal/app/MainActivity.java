@@ -1,277 +1,139 @@
-
 package com.goal.app;
 
 import android.app.*;
 import android.os.Bundle;
+import android.content.*;
 import android.graphics.Color;
 import android.view.*;
 import android.widget.*;
-import android.content.*;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import org.json.*;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 public class MainActivity extends Activity {
-
     LinearLayout root, content;
-    JSONArray activities = new JSONArray();
     SharedPreferences prefs;
-    int blue = Color.rgb(55, 105, 220);
+    String lang="fa", today;
+    boolean dark=false;
+    JSONArray goals, tasks, activities, transactions, debts, assets;
+    int blue=Color.rgb(55,105,220);
 
-    int dp(int n) {
-        return (int)(n * getResources().getDisplayMetrics().density);
-    }
+    int dp(int n){ return (int)(n*getResources().getDisplayMetrics().density); }
+    String tr(String fa,String en){ return lang.equals("fa")?fa:en; }
+    String date(){ return new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date()); }
+    int bg(){ return dark?Color.rgb(22,27,38):Color.rgb(246,248,253); }
+    int fg(){ return dark?Color.WHITE:Color.rgb(35,45,65); }
 
-    @Override
-    public void onCreate(Bundle b) {
+    @Override public void onCreate(Bundle b){
         super.onCreate(b);
-
-        prefs = getSharedPreferences("goal_data", MODE_PRIVATE);
-        try {
-            activities = new JSONArray(prefs.getString("activities", "[]"));
-        } catch(Exception e) {}
-
-        showHome();
+        prefs=getSharedPreferences("goal_data",MODE_PRIVATE);
+        lang=prefs.getString("language","fa");
+        dark=prefs.getBoolean("dark",false);
+        today=date();
+        goals=load("goals"); tasks=load("tasks"); activities=load("activities");
+        transactions=load("transactions"); debts=load("debts"); assets=load("assets");
+        normalizeDaily();
+        home();
     }
-
-    TextView text(String value, int size) {
-        TextView t = new TextView(this);
-        t.setText(value);
-        t.setTextSize(size);
-        t.setTextColor(Color.rgb(35, 45, 65));
-        t.setPadding(dp(8), dp(10), dp(8), dp(10));
-        return t;
-    }
-
-    Button button(String value, Runnable action) {
-        Button b = new Button(this);
-        b.setText(value);
-        b.setOnClickListener(v -> action.run());
-        return b;
-    }
-
-    void setup(String title) {
-        root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.rgb(246, 248, 253));
-
-        TextView header = text(title, 25);
-        header.setTextColor(blue);
-        header.setPadding(dp(20), dp(22), dp(20), dp(18));
-        root.addView(header);
-
-        ScrollView scroll = new ScrollView(this);
-        content = new LinearLayout(this);
-        content.setPadding(dp(16), dp(8), dp(16), dp(20));
-        content.setOrientation(LinearLayout.VERTICAL);
-        scroll.addView(content);
-        root.addView(scroll, new LinearLayout.LayoutParams(
-            -1, 0, 1
-        ));
-
-        setContentView(root);
-    }
-
-    void showHome() {
-        setup("Goal  ✦");
-
-        content.addView(text("به برنامه Goal خوش آمدی!", 20));
-        content.addView(text(
-            "قدم‌های کوچک امروز، موفقیت‌های بزرگ فردا.",
-            15
-        ));
-
-        content.addView(button("🎯  اهداف من", () -> showGoals()));
-        content.addView(button("📅  برنامه روزانه", () -> showTasks()));
-        content.addView(button("⭐  فعالیت‌های من", () -> showActivities()));
-        content.addView(button("💰  امور مالی", () -> showFinance()));
-        content.addView(button("📊  گزارش‌ها", () -> showReports()));
-        content.addView(button("⚙️  تنظیمات", () -> showSettings()));
-    }
-
-    void showActivities() {
-        setup("فعالیت‌های من");
-
-        content.addView(text(
-            "فعالیت‌های دلخواهت را اضافه کن. هیچ فعالیت پیش‌فرضی وجود ندارد.",
-            15
-        ));
-
-        content.addView(button("+ افزودن فعالیت جدید", () -> addActivity()));
-
-        for (int i = 0; i < activities.length(); i++) {
-            final int index = i;
-            JSONObject item = activities.optJSONObject(i);
-            if (item == null) continue;
-
-            String name = item.optString("name");
-            String unit = item.optString("unit");
-            int target = item.optInt("target", 1);
-            int value = item.optInt("value", 0);
-
-            LinearLayout card = new LinearLayout(this);
-            card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(dp(12), dp(8), dp(12), dp(8));
-            card.setBackgroundColor(Color.WHITE);
-
-            card.addView(text(name, 18));
-            card.addView(text(
-                value + " / " + target + " " + unit, 14
-            ));
-
-            LinearLayout actions = new LinearLayout(this);
-
-            Button minus = new Button(this);
-            minus.setText("−");
-            minus.setOnClickListener(v -> changeValue(index, -1));
-
-            Button plus = new Button(this);
-            plus.setText("+");
-            plus.setOnClickListener(v -> changeValue(index, 1));
-
-            Button delete = new Button(this);
-            delete.setText("حذف");
-            delete.setOnClickListener(v -> removeActivity(index));
-
-            actions.addView(minus);
-            actions.addView(plus);
-            actions.addView(delete);
-            card.addView(actions);
-
-            LinearLayout.LayoutParams p =
-                new LinearLayout.LayoutParams(-1, -2);
-            p.setMargins(0, dp(6), 0, dp(6));
-            content.addView(card, p);
+    JSONArray load(String key){ try{return new JSONArray(prefs.getString(key,"[]"));}catch(Exception e){return new JSONArray();} }
+    void save(String key,JSONArray value){ prefs.edit().putString(key,value.toString()).apply(); }
+    void saveAll(){ save("goals",goals);save("tasks",tasks);save("activities",activities);save("transactions",transactions);save("debts",debts);save("assets",assets); }
+    void normalizeDaily(){
+        String last=prefs.getString("last_day","");
+        if(!last.equals(today)){
+            for(int i=0;i<activities.length();i++){ JSONObject o=activities.optJSONObject(i);if(o!=null)try{o.put("value",0);}catch(Exception e){} }
+            prefs.edit().putString("last_day",today).apply();save("activities",activities);
         }
-
-        content.addView(button("بازگشت به خانه", () -> showHome()));
+        JSONArray keep=new JSONArray();
+        for(int i=0;i<tasks.length();i++){JSONObject o=tasks.optJSONObject(i);if(o!=null && today.equals(o.optString("date")))keep.put(o);}
+        tasks=keep;save("tasks",tasks);
     }
-
-    void addActivity() {
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-
-        EditText name = new EditText(this);
-        name.setHint("نام فعالیت");
-
-        EditText unit = new EditText(this);
-        unit.setHint("واحد (مثلاً دقیقه یا لیوان)");
-
-        EditText target = new EditText(this);
-        target.setHint("هدف روزانه");
-        target.setInputType(2);
-
-        form.addView(name);
-        form.addView(unit);
-        form.addView(target);
-
-        new AlertDialog.Builder(this)
-            .setTitle("فعالیت جدید")
-            .setView(form)
-            .setPositiveButton("ذخیره", (d, w) -> {
-                try {
-                    String n = name.getText().toString().trim();
-                    String u = unit.getText().toString().trim();
-                    int t = Integer.parseInt(
-                        target.getText().toString()
-                    );
-
-                    if (n.isEmpty() || u.isEmpty() || t < 1)
-                        return;
-
-                    JSONObject item = new JSONObject();
-                    item.put("name", n);
-                    item.put("unit", u);
-                    item.put("target", t);
-                    item.put("value", 0);
-
-                    activities.put(item);
-                    save();
-                    showActivities();
-                } catch(Exception e) {
-                    Toast.makeText(this,
-                        "اطلاعات را بررسی کن",
-                        Toast.LENGTH_SHORT).show();
-                }
-            })
-            .setNegativeButton("انصراف", null)
-            .show();
+    TextView text(String s,int size){ TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(fg());t.setPadding(dp(8),dp(9),dp(8),dp(9));return t; }
+    Button button(String s,Runnable r){ Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setOnClickListener(v->r.run());return b; }
+    EditText edit(String hint,int type){EditText e=new EditText(this);e.setSingleLine(true);e.setHint(hint);if(type!=0)e.setInputType(type);return e;}
+    void setup(String title){
+        root=new LinearLayout(this);root.setOrientation(1);root.setBackgroundColor(bg());
+        TextView h=text(title,23);h.setTextColor(dark?Color.rgb(130,165,255):blue);h.setPadding(dp(20),dp(20),dp(20),dp(14));root.addView(h);
+        ScrollView sc=new ScrollView(this);content=new LinearLayout(this);content.setOrientation(1);content.setPadding(dp(14),dp(4),dp(14),dp(22));sc.addView(content);
+        root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
     }
-
-    void changeValue(int index, int amount) {
-        JSONObject item = activities.optJSONObject(index);
-        if (item == null) return;
-
-        int value = Math.max(
-            0, item.optInt("value", 0) + amount
-        );
-
-        try {
-            item.put("value", value);
-            save();
-        } catch(Exception e) {}
-
-        showActivities();
+    void heading(String s){content.addView(text(s,18));}
+    void back(){content.addView(button(tr("⌂ خانه","⌂ Home"),()->home()));}
+    void home(){
+        setup("Goal ✦");
+        content.addView(text(tr("به Goal خوش آمدی!","Welcome to Goal!"),21));
+        content.addView(text(tr("قدم‌های کوچک امروز، موفقیت‌های بزرگ فردا.","Small steps today, big achievements tomorrow."),15));
+        content.addView(button("🎯  "+tr("اهداف من","My Goals"),()->goalPage()));
+        content.addView(button("📅  "+tr("برنامه امروز","Today's Plan"),()->taskPage()));
+        content.addView(button("⭐  "+tr("فعالیت‌های من","My Activities"),()->activityPage()));
+        content.addView(button("💰  "+tr("امور مالی","Finance"),()->financePage()));
+        content.addView(button("📊  "+tr("گزارش‌ها","Reports"),()->reports()));
+        content.addView(button("⚙️  "+tr("تنظیمات","Settings"),()->settings()));
+        int done=0;for(int i=0;i<tasks.length();i++)if(tasks.optJSONObject(i)!=null&&tasks.optJSONObject(i).optBoolean("done"))done++;
+        content.addView(text(tr("کارهای انجام‌شده امروز: ","Tasks completed today: ")+done+" / "+tasks.length(),14));
     }
-
-    void removeActivity(int index) {
-        JSONArray updated = new JSONArray();
-
-        for (int i = 0; i < activities.length(); i++) {
-            if (i != index)
-                updated.put(activities.optJSONObject(i));
-        }
-
-        activities = updated;
-        save();
-        showActivities();
+    void goalPage(){
+        setup(tr("اهداف من","My Goals"));content.addView(button("+ "+tr("هدف جدید","New goal"),()->goalDialog()));
+        for(int i=0;i<goals.length();i++){final int x=i;JSONObject o=goals.optJSONObject(i);if(o==null)continue;
+            String n=o.optString("name"),kind=o.optString("kind");int target=o.optInt("target",1),value=o.optInt("value",0);
+            LinearLayout card=card();card.addView(text(n+" • "+(kind.equals("long")?tr("بلندمدت","Long-term"):tr("کوتاه‌مدت","Short-term")),18));
+            card.addView(text(value+" / "+target+"  "+tr("پیشرفت","progress"),14));
+            ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(Math.max(1,target));bar.setProgress(Math.min(value,target));card.addView(bar);
+            LinearLayout row=new LinearLayout(this);row.addView(button("−",()->goalChange(x,-1)));row.addView(button("+",()->goalChange(x,1)));row.addView(button(tr("حذف","Delete"),()->confirmDelete(tr("حذف هدف؟","Delete goal?"),()->{remove(goals,x);save("goals",goals);goalPage();})));card.addView(row);content.addView(card);
+        }back();
     }
-
-    void save() {
-        prefs.edit().putString(
-            "activities", activities.toString()
-        ).apply();
+    void goalDialog(){
+        LinearLayout f=form();EditText n=edit(tr("عنوان هدف","Goal title"),0),t=edit(tr("مقدار هدف (عدد)","Target amount (number)"),2);
+        Spinner sp=new Spinner(this);sp.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{tr("کوتاه‌مدت","Short-term"),tr("بلندمدت","Long-term")}));
+        f.addView(n);f.addView(t);f.addView(sp);
+        new AlertDialog.Builder(this).setTitle(tr("افزودن هدف","Add goal")).setView(f).setNegativeButton(tr("لغو","Cancel"),null).setPositiveButton(tr("ذخیره","Save"),(d,w)->{
+            try{if(n.getText().toString().trim().isEmpty())return;int target=Integer.parseInt(t.getText().toString());if(target<1)return;
+            JSONObject o=new JSONObject();o.put("name",n.getText().toString().trim());o.put("target",target);o.put("value",0);o.put("kind",sp.getSelectedItemPosition()==1?"long":"short");goals.put(o);save("goals",goals);goalPage();}catch(Exception e){toast(tr("مقدار هدف معتبر نیست","Invalid target"));}}).show();
     }
-
-    void showGoals() {
-        simplePage("اهداف من",
-            "اهداف کوتاه‌مدت و بلندمدتت را دنبال کن.");
+    void goalChange(int i,int d){JSONObject o=goals.optJSONObject(i);if(o==null)return;try{o.put("value",Math.max(0,o.optInt("value")+d));}catch(Exception e){}save("goals",goals);goalPage();}
+    void taskPage(){
+        setup(tr("برنامه امروز","Today's Plan"));content.addView(button("+ "+tr("کار جدید","New task"),()->taskDialog()));
+        for(int i=0;i<tasks.length();i++){final int x=i;JSONObject o=tasks.optJSONObject(i);if(o==null)continue;LinearLayout c=card();CheckBox cb=new CheckBox(this);cb.setText(o.optString("name"));cb.setTextColor(fg());cb.setChecked(o.optBoolean("done"));cb.setOnCheckedChangeListener((b,v)->{try{o.put("done",v);}catch(Exception e){}save("tasks",tasks);});c.addView(cb);c.addView(button(tr("حذف","Delete"),()->{remove(tasks,x);save("tasks",tasks);taskPage();}));content.addView(c);}
+        if(tasks.length()==0)content.addView(text(tr("هنوز کاری ثبت نشده است.","No tasks yet."),15));back();
     }
-
-    void showTasks() {
-        simplePage("برنامه روزانه",
-            "برنامه روزانه در نسخه‌های بعدی تکمیل می‌شود.");
+    void taskDialog(){EditText n=edit(tr("عنوان کار","Task name"),0);new AlertDialog.Builder(this).setTitle(tr("کار جدید","New task")).setView(n).setNegativeButton(tr("لغو","Cancel"),null).setPositiveButton(tr("افزودن","Add"),(d,w)->{String s=n.getText().toString().trim();if(s.isEmpty())return;try{JSONObject o=new JSONObject();o.put("name",s);o.put("done",false);o.put("date",today);tasks.put(o);save("tasks",tasks);taskPage();}catch(Exception e){}}).show();}
+    void activityPage(){
+        setup(tr("فعالیت‌های من","My Activities"));content.addView(text(tr("فعالیت دلخواهت را بساز؛ مقدارها هر روز از صفر شروع می‌شوند.","Create your own activities; counts reset daily."),14));
+        content.addView(button("+ "+tr("افزودن فعالیت","Add activity"),()->activityDialog()));
+        for(int i=0;i<activities.length();i++){final int x=i;JSONObject o=activities.optJSONObject(i);if(o==null)continue;LinearLayout c=card();c.addView(text(o.optString("name"),18));c.addView(text(o.optInt("value")+" / "+o.optInt("target")+" "+o.optString("unit"),14));LinearLayout r=new LinearLayout(this);r.addView(button("−",()->activityChange(x,-1)));r.addView(button("+",()->activityChange(x,1)));r.addView(button(tr("حذف","Delete"),()->{remove(activities,x);save("activities",activities);activityPage();}));c.addView(r);content.addView(c);}
+        if(activities.length()==0)content.addView(text(tr("هنوز فعالیتی نداری. اولین فعالیتت را اضافه کن.","No activities yet. Add your first one."),15));back();
     }
-
-    void showFinance() {
-        simplePage("امور مالی",
-            "ثبت دستی درآمد و هزینه در نسخه‌های بعدی تکمیل می‌شود.");
+    void activityDialog(){LinearLayout f=form();EditText n=edit(tr("نام فعالیت","Activity name"),0),u=edit(tr("واحد؛ مثل دقیقه یا صفحه","Unit, e.g. minutes or pages"),0),t=edit(tr("هدف روزانه","Daily target"),2);f.addView(n);f.addView(u);f.addView(t);
+        new AlertDialog.Builder(this).setTitle(tr("فعالیت جدید","New activity")).setView(f).setNegativeButton(tr("لغو","Cancel"),null).setPositiveButton(tr("ذخیره","Save"),(d,w)->{try{String name=n.getText().toString().trim(),unit=u.getText().toString().trim();int target=Integer.parseInt(t.getText().toString());if(name.isEmpty()||unit.isEmpty()||target<1)return;JSONObject o=new JSONObject();o.put("name",name);o.put("unit",unit);o.put("target",target);o.put("value",0);activities.put(o);save("activities",activities);activityPage();}catch(Exception e){toast(tr("اطلاعات را بررسی کن","Check the details"));}}).show();}
+    void activityChange(int i,int d){JSONObject o=activities.optJSONObject(i);if(o==null)return;try{o.put("value",Math.max(0,o.optInt("value")+d));}catch(Exception e){}save("activities",activities);activityPage();}
+    void financePage(){
+        setup(tr("امور مالی","Finance"));int income=0,expense=0;
+        for(int i=0;i<transactions.length();i++){JSONObject o=transactions.optJSONObject(i);if(o==null)continue;if(o.optString("type").equals("income"))income+=o.optInt("amount");else expense+=o.optInt("amount");}
+        content.addView(text(tr("موجودی خالص ثبت‌شده: ","Recorded net balance: ")+money(income-expense)+" "+tr("تومان","Toman"),19));
+        content.addView(text(tr("درآمد: ","Income: ")+money(income)+"   "+tr("هزینه: ","Expense: ")+money(expense),14));
+        content.addView(button("+ "+tr("ثبت تراکنش","Add transaction"),()->transactionDialog()));
+        content.addView(button("+ "+tr("ثبت بدهی یا طلب","Add debt / credit"),()->debtDialog()));
+        content.addView(button("+ "+tr("ثبت دارایی","Add asset"),()->assetDialog()));
+        heading(tr("تراکنش‌ها","Transactions"));
+        for(int i=transactions.length()-1;i>=0;i--){final int x=i;JSONObject o=transactions.optJSONObject(i);if(o==null)continue;content.addView(line(o.optString("name")+" • "+money(o.optInt("amount"))+" "+tr("تومان","Toman")+" • "+(o.optString("type").equals("income")?tr("درآمد","Income"):tr("هزینه","Expense")),()->{remove(transactions,x);save("transactions",transactions);financePage();}));}
+        heading(tr("بدهی‌ها و طلب‌ها","Debts and credits"));
+        for(int i=0;i<debts.length();i++){final int x=i;JSONObject o=debts.optJSONObject(i);if(o!=null)content.addView(line(o.optString("name")+" • "+money(o.optInt("amount"))+" • "+o.optString("type"),()->{remove(debts,x);save("debts",debts);financePage();}));}
+        heading(tr("دارایی‌ها","Assets"));
+        for(int i=0;i<assets.length();i++){final int x=i;JSONObject o=assets.optJSONObject(i);if(o!=null)content.addView(line(o.optString("name")+" • "+money(o.optInt("amount")),()->{remove(assets,x);save("assets",assets);financePage();}));}
+        back();
     }
-
-    void showReports() {
-        simplePage("گزارش‌ها",
-            "گزارش پیشرفت در نسخه‌های بعدی تکمیل می‌شود.");
-    }
-
-    void showSettings() {
-        setup("تنظیمات");
-
-        content.addView(text("برنامه Goal", 20));
-        content.addView(text(
-            "اطلاعات برنامه به‌صورت محلی روی گوشی ذخیره می‌شود.",
-            15
-        ));
-        content.addView(button("فارسی", () -> showHome()));
-        content.addView(button("English", () -> {
-            Toast.makeText(this,
-                "English will be added in the next version",
-                Toast.LENGTH_SHORT).show();
-        }));
-        content.addView(button("بازگشت", () -> showHome()));
-    }
-
-    void simplePage(String title, String message) {
-        setup(title);
-        content.addView(text(message, 17));
-        content.addView(button("بازگشت به خانه", () -> showHome()));
-    }
+    void transactionDialog(){LinearLayout f=form();EditText n=edit(tr("شرح","Description"),0),a=edit(tr("مبلغ به تومان","Amount in toman"),2);Spinner s=new Spinner(this);s.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{tr("هزینه","Expense"),tr("درآمد","Income")}));f.addView(n);f.addView(a);f.addView(s);
+        new AlertDialog.Builder(this).setTitle(tr("تراکنش جدید","New transaction")).setView(f).setNegativeButton(tr("لغو","Cancel"),null).setPositiveButton(tr("ذخیره","Save"),(d,w)->{try{int v=Integer.parseInt(a.getText().toString());if(v<1||n.getText().toString().trim().isEmpty())return;JSONObject o=new JSONObject();o.put("name",n.getText().toString().trim());o.put("amount",v);o.put("type",s.getSelectedItemPosition()==1?"income":"expense");o.put("date",today);transactions.put(o);save("transactions",transactions);financePage();}catch(Exception e){toast(tr("مبلغ معتبر نیست","Invalid amount"));}}).show();}
+    void debtDialog(){LinearLayout f=form();EditText n=edit(tr("شرح بدهی یا طلب","Description"),0),a=edit(tr("مبلغ به تومان","Amount in toman"),2);Spinner s=new Spinner(this);s.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{tr("بدهی من","I owe"),tr("طلب من","Owed to me"),tr("وام / قسط","Loan / installment")}));f.addView(n);f.addView(a);f.addView(s);new AlertDialog.Builder(this).setTitle(tr("بدهی یا طلب","Debt / credit")).setView(f).setNegativeButton(tr("لغو","Cancel"),null).setPositiveButton(tr("ذخیره","Save"),(d,w)->{try{JSONObject o=new JSONObject();o.put("name",n.getText().toString());o.put("amount",Integer.parseInt(a.getText().toString()));o.put("type",s.getSelectedItem().toString());debts.put(o);save("debts",debts);financePage();}catch(Exception e){toast(tr("اطلاعات را بررسی کن","Check details"));}}).show();}
+    void assetDialog(){LinearLayout f=form();EditText n=edit(tr("نام دارایی","Asset name"),0),a=edit(tr("ارزش به تومان","Value in toman"),2);f.addView(n);f.addView(a);new AlertDialog.Builder(this).setTitle(tr("دارایی جدید","New asset")).setView(f).setNegativeButton(tr("لغو","Cancel"),null).setPositiveButton(tr("ذخیره","Save"),(d,w)->{try{JSONObject o=new JSONObject();o.put("name",n.getText().toString());o.put("amount",Integer.parseInt(a.getText().toString()));assets.put(o);save("assets",assets);financePage();}catch(Exception e){toast(tr("اطلاعات را بررسی کن","Check details"));}}).show();}
+    void reports(){setup(tr("گزارش‌ها","Reports"));int done=0;for(int i=0;i<tasks.length();i++){JSONObject o=tasks.optJSONObject(i);if(o!=null&&o.optBoolean("done"))done++;}content.addView(text(tr("گزارش امروز","Today's report"),19));content.addView(text(tr("کارهای انجام‌شده: ","Completed tasks: ")+done+" / "+tasks.length(),16));content.addView(text(tr("اهداف ثبت‌شده: ","Goals created: ")+goals.length(),16));content.addView(text(tr("فعالیت‌های شخصی: ","Custom activities: ")+activities.length(),16));int income=0,expense=0;for(int i=0;i<transactions.length();i++){JSONObject o=transactions.optJSONObject(i);if(o!=null){if(o.optString("type").equals("income"))income+=o.optInt("amount");else expense+=o.optInt("amount");}}content.addView(text(tr("درآمد کل: ","Total income: ")+money(income)+" "+tr("تومان","Toman"),16));content.addView(text(tr("هزینه کل: ","Total expenses: ")+money(expense)+" "+tr("تومان","Toman"),16));back();}
+    void settings(){setup(tr("تنظیمات","Settings"));content.addView(button(tr("زبان: فارسی / English","Language: Persian / English"),()->{lang=lang.equals("fa")?"en":"fa";prefs.edit().putString("language",lang).apply();settings();}));content.addView(button(tr("تغییر تم روشن / تاریک","Toggle light / dark theme"),()->{dark=!dark;prefs.edit().putBoolean("dark",dark).apply();settings();}));content.addView(button(tr("پشتیبان‌گیری","Backup data"),()->backup()));content.addView(button(tr("حذف همه اطلاعات","Delete all data"),()->confirmDelete(tr("تمام اطلاعات پاک شود؟","Delete all data?"),()->{prefs.edit().clear().apply();goals=new JSONArray();tasks=new JSONArray();activities=new JSONArray();transactions=new JSONArray();debts=new JSONArray();assets=new JSONArray();lang="fa";dark=false;home();})));content.addView(text(tr("اطلاعات فقط روی همین گوشی ذخیره می‌شود.","Your data is stored locally on this phone."),14));back();}
+    void backup(){try{JSONObject all=new JSONObject();all.put("goals",goals);all.put("tasks",tasks);all.put("activities",activities);all.put("transactions",transactions);all.put("debts",debts);all.put("assets",assets);Intent send=new Intent(Intent.ACTION_SEND);send.setType("text/plain");send.putExtra(Intent.EXTRA_SUBJECT,"Goal backup");send.putExtra(Intent.EXTRA_TEXT,all.toString(2));startActivity(Intent.createChooser(send,tr("ارسال نسخه پشتیبان","Share backup")));}catch(Exception e){toast("Backup failed");}}
+    LinearLayout card(){LinearLayout c=new LinearLayout(this);c.setOrientation(1);c.setPadding(dp(10),dp(8),dp(10),dp(8));c.setBackgroundColor(dark?Color.rgb(38,45,60):Color.WHITE);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,dp(5),0,dp(5));c.setLayoutParams(p);return c;}
+    LinearLayout form(){LinearLayout f=new LinearLayout(this);f.setOrientation(1);f.setPadding(dp(12),dp(4),dp(12),dp(4));return f;}
+    View line(String s,Runnable r){TextView t=text(s+"     ×",15);t.setBackgroundColor(dark?Color.rgb(38,45,60):Color.WHITE);t.setOnClickListener(v->r.run());return t;}
+    void remove(JSONArray a,int index){JSONArray b=new JSONArray();for(int i=0;i<a.length();i++)if(i!=index)b.put(a.opt(i));if(a==goals)goals=b;else if(a==tasks)tasks=b;else if(a==activities)activities=b;else if(a==transactions)transactions=b;else if(a==debts)debts=b;else if(a==assets)assets=b;}
+    void confirmDelete(String title,Runnable r){new AlertDialog.Builder(this).setMessage(title).setNegativeButton(tr("انصراف","Cancel"),null).setPositiveButton(tr("حذف","Delete"),(d,w)->r.run()).show();}
+    String money(int n){return String.format(Locale.US,"%,d",n);}
+    void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
 }
