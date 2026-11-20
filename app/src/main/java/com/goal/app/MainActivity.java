@@ -15,7 +15,7 @@ import java.util.*;
 public class MainActivity extends Activity {
     LinearLayout root, content;
     SharedPreferences prefs;
-    String lang="fa", today;
+    String lang="fa", today, dailyMotivation;
     boolean dark=false;
     JSONArray goals, tasks, activities, transactions, debts, assets;
     int blue=Color.rgb(91,105,255);\n    int purple=Color.rgb(142,76,255);\n    int cyan=Color.rgb(54,190,255);\n    int surface=Color.rgb(27,35,67);
@@ -42,7 +42,37 @@ public class MainActivity extends Activity {
         goals=load("goals"); tasks=load("tasks"); activities=load("activities");
         transactions=load("transactions"); debts=load("debts"); assets=load("assets");
         normalizeDaily();
+        dailyMotivation=pickMotivation();
         home();
+    }
+    String pickMotivation(){
+        String[] fa={
+            "هر قدم کوچک، تو را به رؤیای بزرگت نزدیک‌تر می‌کند.",
+            "امروز فرصت تازه‌ای است برای ساختن بهترین نسخه خودت.",
+            "لازم نیست کامل باشی؛ فقط کافی است ادامه بدهی.",
+            "موفقیت از تصمیم‌های کوچک و تکرارهای روزانه ساخته می‌شود.",
+            "به خودت ایمان داشته باش؛ تو از چیزی که فکر می‌کنی توانمندتری.",
+            "آینده‌ات را با انتخاب‌های امروزت می‌سازی.",
+            "آهسته رفتن اشکالی ندارد؛ فقط متوقف نشو.",
+            "به جای منتظر ماندن برای انگیزه، با یک قدم شروع کن.",
+            "هر روز یک فرصت برای بهتر شدن است.",
+            "تو برای پیشرفت ساخته شده‌ای؛ امروز را از دست نده."
+        };
+        String[] en={
+            "Every small step brings you closer to a big dream.",
+            "Today is a fresh chance to become your best self.",
+            "You don't have to be perfect; just keep going.",
+            "Success is built from small decisions repeated daily.",
+            "Believe in yourself; you are stronger than you think.",
+            "Your future is shaped by the choices you make today.",
+            "It's okay to go slowly. Just don't stop.",
+            "Don't wait for motivation. Start with one small step.",
+            "Every day is another chance to grow.",
+            "You were made to grow. Make today count."
+        };
+        Random random=new Random();
+        int index=random.nextInt(fa.length);
+        return lang.equals("fa")?fa[index]:en[index];
     }
     JSONArray load(String key){ try{return new JSONArray(prefs.getString(key,"[]"));}catch(Exception e){return new JSONArray();} }
     void save(String key,JSONArray value){ prefs.edit().putString(key,value.toString()).apply(); }
@@ -99,6 +129,17 @@ public class MainActivity extends Activity {
     void back(){content.addView(button(tr("⌂ خانه","⌂ Home"),()->home()));}
     void home(){
         setup("Goal ✦");
+        LinearLayout quote=card();
+        quote.setBackground(shape(dark?Color.rgb(69,48,139):Color.rgb(107,91,220),dark?Color.rgb(31,76,145):Color.rgb(67,143,222),Color.argb(130,220,225,255)));
+        TextView quoteLabel=text(tr("✨ جمله انگیزشی امروز","✨ YOUR DAILY INSPIRATION"),12);
+        quoteLabel.setTextColor(Color.rgb(225,229,255));
+        quoteLabel.setTypeface(null,android.graphics.Typeface.BOLD);
+        TextView quoteText=text("“"+dailyMotivation+"”",19);
+        quoteText.setTextColor(Color.WHITE);
+        quoteText.setTypeface(null,android.graphics.Typeface.BOLD);
+        quote.addView(quoteLabel);quote.addView(quoteText);
+        LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(-1,-2);qp.setMargins(0,dp(4),0,dp(12));quote.setLayoutParams(qp);
+        content.addView(quote);
         content.addView(text(tr("به Goal خوش آمدی!","Welcome to Goal!"),21));
         content.addView(text(tr("قدم‌های کوچک امروز، موفقیت‌های بزرگ فردا.","Small steps today, big achievements tomorrow."),15));
         content.addView(text("📆  "+persianDate(),15));
