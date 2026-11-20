@@ -4,6 +4,7 @@ import android.app.*;
 import android.os.Bundle;
 import android.content.*;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.view.*;
 import android.widget.*;
 import org.json.*;
@@ -17,7 +18,7 @@ public class MainActivity extends Activity {
     String lang="fa", today;
     boolean dark=false;
     JSONArray goals, tasks, activities, transactions, debts, assets;
-    int blue=Color.rgb(55,105,220);
+    int blue=Color.rgb(91,105,255);\n    int purple=Color.rgb(142,76,255);\n    int cyan=Color.rgb(54,190,255);\n    int surface=Color.rgb(27,35,67);
 
     int dp(int n){ return (int)(n*getResources().getDisplayMetrics().density); }
     String tr(String fa,String en){ return lang.equals("fa")?fa:en; }
@@ -50,13 +51,42 @@ public class MainActivity extends Activity {
         for(int i=0;i<tasks.length();i++){JSONObject o=tasks.optJSONObject(i);if(o!=null && today.equals(o.optString("date")))keep.put(o);}
         tasks=keep;save("tasks",tasks);
     }
-    TextView text(String s,int size){ TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(fg());t.setPadding(dp(8),dp(9),dp(8),dp(9));return t; }
-    Button button(String s,Runnable r){ Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setOnClickListener(v->r.run());return b; }
-    EditText edit(String hint,int type){EditText e=new EditText(this);e.setSingleLine(true);e.setHint(hint);if(type!=0)e.setInputType(type);return e;}
+    TextView text(String s,int size){
+        TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(fg());
+        t.setPadding(dp(10),dp(10),dp(10),dp(10));
+        t.setGravity(lang.equals("fa")?Gravity.RIGHT:Gravity.LEFT);
+        t.setLineSpacing(dp(2),1.05f);
+        return t;
+    }
+    Button button(String s,Runnable r){
+        Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextColor(Color.WHITE);
+        b.setTextSize(15);b.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);
+        b.setPadding(dp(16),dp(12),dp(16),dp(12));
+        b.setBackground(shape(purple,blue,Color.argb(110,190,190,255)));
+        b.setElevation(dp(5));b.setMinHeight(dp(54));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,dp(6),0,dp(6));b.setLayoutParams(p);
+        b.setOnClickListener(v->r.run());return b;
+    }
+    EditText edit(String hint,int type){
+        EditText e=new EditText(this);e.setSingleLine(true);e.setHint(hint);if(type!=0)e.setInputType(type);
+        e.setTextColor(fg());e.setHintTextColor(dark?Color.rgb(165,174,205):Color.rgb(120,130,160));
+        e.setPadding(dp(14),dp(10),dp(14),dp(10));e.setBackground(shape(dark?Color.rgb(31,40,75):Color.WHITE,dark?Color.rgb(25,33,65):Color.rgb(230,237,255),Color.rgb(105,116,220)));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,dp(6),0,dp(6));e.setLayoutParams(p);return e;
+    }
     void setup(String title){
-        root=new LinearLayout(this);root.setOrientation(1);root.setBackgroundColor(bg());
-        TextView h=text(title,23);h.setTextColor(dark?Color.rgb(130,165,255):blue);h.setPadding(dp(20),dp(20),dp(20),dp(14));root.addView(h);
-        ScrollView sc=new ScrollView(this);content=new LinearLayout(this);content.setOrientation(1);content.setPadding(dp(14),dp(4),dp(14),dp(22));sc.addView(content);
+        getWindow().setStatusBarColor(dark?Color.rgb(10,15,35):Color.rgb(40,49,115));
+        getWindow().setNavigationBarColor(dark?Color.rgb(10,15,35):Color.rgb(40,49,115));
+        root=new LinearLayout(this);root.setOrientation(1);
+        root.setBackground(shape(bg(),dark?Color.rgb(23,29,66):Color.rgb(220,230,255),0));
+        LinearLayout hero=new LinearLayout(this);hero.setOrientation(1);hero.setPadding(dp(18),dp(14),dp(18),dp(16));
+        hero.setBackground(shape(dark?Color.rgb(53,43,112):Color.rgb(93,105,210),dark?Color.rgb(25,54,111):Color.rgb(126,93,220),Color.argb(120,210,215,255)));
+        TextView brand=text("✦  GOAL",14);brand.setTextColor(Color.rgb(205,210,255));brand.setTypeface(null,android.graphics.Typeface.BOLD);
+        TextView h=text(title,24);h.setTextColor(Color.WHITE);h.setTypeface(null,android.graphics.Typeface.BOLD);
+        TextView sub=text(tr("برنامه‌ریزی کن • تمرکز کن • پیشرفت کن","Plan • Focus • Achieve"),12);sub.setTextColor(Color.rgb(218,224,255));
+        hero.addView(brand);hero.addView(h);hero.addView(sub);
+        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.setMargins(dp(14),dp(12),dp(14),dp(8));root.addView(hero,hp);
+        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);
+        content=new LinearLayout(this);content.setOrientation(1);content.setPadding(dp(14),dp(6),dp(14),dp(24));sc.addView(content);
         root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
     }
     void heading(String s){content.addView(text(s,18));}
@@ -156,9 +186,13 @@ public class MainActivity extends Activity {
     void reports(){setup(tr("گزارش‌ها","Reports"));int done=0;for(int i=0;i<tasks.length();i++){JSONObject o=tasks.optJSONObject(i);if(o!=null&&o.optBoolean("done"))done++;}content.addView(text(tr("گزارش امروز","Today's report"),19));content.addView(text(tr("کارهای انجام‌شده: ","Completed tasks: ")+done+" / "+tasks.length(),16));content.addView(text(tr("اهداف ثبت‌شده: ","Goals created: ")+goals.length(),16));content.addView(text(tr("فعالیت‌های شخصی: ","Custom activities: ")+activities.length(),16));int income=0,expense=0;for(int i=0;i<transactions.length();i++){JSONObject o=transactions.optJSONObject(i);if(o!=null){if(o.optString("type").equals("income"))income+=o.optInt("amount");else expense+=o.optInt("amount");}}content.addView(text(tr("درآمد کل: ","Total income: ")+money(income)+" "+tr("تومان","Toman"),16));content.addView(text(tr("هزینه کل: ","Total expenses: ")+money(expense)+" "+tr("تومان","Toman"),16));back();}
     void settings(){setup(tr("تنظیمات","Settings"));content.addView(button(tr("زبان: فارسی / English","Language: Persian / English"),()->{lang=lang.equals("fa")?"en":"fa";prefs.edit().putString("language",lang).apply();settings();}));content.addView(button(tr("تغییر تم روشن / تاریک","Toggle light / dark theme"),()->{dark=!dark;prefs.edit().putBoolean("dark",dark).apply();settings();}));content.addView(button(tr("پشتیبان‌گیری","Backup data"),()->backup()));content.addView(button(tr("حذف همه اطلاعات","Delete all data"),()->confirmDelete(tr("تمام اطلاعات پاک شود؟","Delete all data?"),()->{prefs.edit().clear().apply();goals=new JSONArray();tasks=new JSONArray();activities=new JSONArray();transactions=new JSONArray();debts=new JSONArray();assets=new JSONArray();lang="fa";dark=false;home();})));content.addView(text(tr("اطلاعات فقط روی همین گوشی ذخیره می‌شود.","Your data is stored locally on this phone."),14));back();}
     void backup(){try{JSONObject all=new JSONObject();all.put("goals",goals);all.put("tasks",tasks);all.put("activities",activities);all.put("transactions",transactions);all.put("debts",debts);all.put("assets",assets);Intent send=new Intent(Intent.ACTION_SEND);send.setType("text/plain");send.putExtra(Intent.EXTRA_SUBJECT,"Goal backup");send.putExtra(Intent.EXTRA_TEXT,all.toString(2));startActivity(Intent.createChooser(send,tr("ارسال نسخه پشتیبان","Share backup")));}catch(Exception e){toast("Backup failed");}}
-    LinearLayout card(){LinearLayout c=new LinearLayout(this);c.setOrientation(1);c.setPadding(dp(10),dp(8),dp(10),dp(8));c.setBackgroundColor(dark?Color.rgb(38,45,60):Color.WHITE);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,dp(5),0,dp(5));c.setLayoutParams(p);return c;}
+    LinearLayout card(){
+        LinearLayout c=new LinearLayout(this);c.setOrientation(1);c.setPadding(dp(14),dp(12),dp(14),dp(12));
+        c.setBackground(shape(dark?Color.rgb(36,43,83):Color.WHITE,dark?Color.rgb(25,39,78):Color.rgb(226,234,255),Color.argb(100,120,135,235)));
+        c.setElevation(dp(4));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,dp(7),0,dp(7));c.setLayoutParams(p);return c;
+    }
     LinearLayout form(){LinearLayout f=new LinearLayout(this);f.setOrientation(1);f.setPadding(dp(12),dp(4),dp(12),dp(4));return f;}
-    View line(String s,Runnable r){TextView t=text(s+"     ×",15);t.setBackgroundColor(dark?Color.rgb(38,45,60):Color.WHITE);t.setOnClickListener(v->r.run());return t;}
+    View line(String s,Runnable r){TextView t=text(s+"     ×",15);t.setBackground(shape(dark?Color.rgb(35,43,79):Color.WHITE,dark?Color.rgb(26,36,70):Color.rgb(230,237,255),Color.argb(90,120,135,235)));t.setElevation(dp(2));t.setOnClickListener(v->r.run());LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,dp(4),0,dp(4));t.setLayoutParams(p);return t;}
     void remove(JSONArray a,int index){JSONArray b=new JSONArray();for(int i=0;i<a.length();i++)if(i!=index)b.put(a.opt(i));if(a==goals)goals=b;else if(a==tasks)tasks=b;else if(a==activities)activities=b;else if(a==transactions)transactions=b;else if(a==debts)debts=b;else if(a==assets)assets=b;}
     void confirmDelete(String title,Runnable r){new AlertDialog.Builder(this).setMessage(title).setNegativeButton(tr("انصراف","Cancel"),null).setPositiveButton(tr("حذف","Delete"),(d,w)->r.run()).show();}
     String money(int n){return String.format(Locale.US,"%,d",n);}
