@@ -24,8 +24,14 @@ public class MainActivity extends Activity {
     String tr(String fa,String en){ return lang.equals("fa")?fa:en; }
     String date(){ return new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date()); }
     String persianDate(){ return DateFormat.getDateInstance(DateFormat.FULL,Locale.forLanguageTag("fa-IR-u-ca-persian")).format(new Date()); }
-    int bg(){ return dark?Color.rgb(22,27,38):Color.rgb(246,248,253); }
-    int fg(){ return dark?Color.WHITE:Color.rgb(35,45,65); }
+    int bg(){ return dark?Color.rgb(10,15,35):Color.rgb(239,243,255); }
+    int fg(){ return dark?Color.rgb(244,246,255):Color.rgb(30,39,72); }
+    GradientDrawable shape(int a,int b,int stroke){
+        GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{a,b});
+        d.setCornerRadius(dp(22));
+        if(stroke>0)d.setStroke(dp(1),stroke);
+        return d;
+    }
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
