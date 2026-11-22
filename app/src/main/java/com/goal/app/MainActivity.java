@@ -11,6 +11,8 @@ import org.json.*;
 import java.text.SimpleDateFormat;
 import java.text.DateFormat;
 import java.util.*;
+import java.net.*;
+import java.io.*;
 
 public class MainActivity extends Activity {
     LinearLayout root, content;
@@ -146,16 +148,75 @@ public class MainActivity extends Activity {
         content.addView(text(tr("به Goal خوش آمدی!","Welcome to Goal!"),21));
         content.addView(text(tr("قدم‌های کوچک امروز، موفقیت‌های بزرگ فردا.","Small steps today, big achievements tomorrow."),15));
         content.addView(text("📆  "+persianDate(),15));
-        content.addView(button("🗓️  "+tr("تقویم شمسی","Persian calendar"),()->calendarPage()));
-        content.addView(button("🎯  "+tr("اهداف من","My Goals"),()->goalPage()));
-        content.addView(button("📅  "+tr("برنامه امروز","Today's Plan"),()->taskPage()));
-        content.addView(button("⭐  "+tr("فعالیت‌های من","My Activities"),()->activityPage()));
-        content.addView(button("💰  "+tr("امور مالی","Finance"),()->financePage()));
-        content.addView(button("📊  "+tr("گزارش‌ها","Reports"),()->reports()));
-        content.addView(button("⚙️  "+tr("تنظیمات","Settings"),()->settings()));
+        content.addView(navItem("◷",tr("تقویم شمسی","Persian calendar"),tr("برنامه‌ریزی بر پایه تقویم ایرانی","Plan with the Persian calendar"),()->calendarPage()));
+        content.addView(navItem("◎",tr("اهداف من","My Goals"),tr("مسیر پیشرفت و دستاوردها","Your progress and milestones"),()->goalPage()));
+        content.addView(navItem("▤",tr("برنامه امروز","Today's Plan"),tr("کارهای مهم امروزت","Your priorities for today"),()->taskPage()));
+        content.addView(navItem("✧",tr("فعالیت‌های من","My Activities"),tr("عادت‌ها و سنجه‌های شخصی","Your custom activities"),()->activityPage()));
+        content.addView(navItem("◈",tr("امور مالی","Finance"),tr("مدیریت هوشمند دخل‌وخرج","Personal money management"),()->financePage()));
+        content.addView(navItem("↗",tr("بازار و قیمت‌ها","Market & Rates"),tr("قیمت دلار، طلا و سکه به تومان","USD, gold and coin prices in toman"),()->marketPage()));
+        content.addView(navItem("▥",tr("گزارش‌ها","Reports"),tr("مرور عملکرد و روند پیشرفت","Review your performance"),()->reports()));
+        content.addView(navItem("⚙",tr("تنظیمات","Settings"),tr("شخصی‌سازی تجربه Goal","Personalize your Goal experience"),()->settings()));
         int done=0;for(int i=0;i<tasks.length();i++)if(tasks.optJSONObject(i)!=null&&tasks.optJSONObject(i).optBoolean("done"))done++;
         content.addView(text(tr("کارهای انجام‌شده امروز: ","Tasks completed today: ")+done+" / "+tasks.length(),14));
     }
+
+    LinearLayout navItem(String glyph,String title,String subtitle,Runnable action){
+        LinearLayout outer=new LinearLayout(this);outer.setOrientation(0);outer.setGravity(Gravity.CENTER_VERTICAL);
+        outer.setPadding(dp(13),dp(12),dp(13),dp(12));
+        outer.setBackground(shape(dark?Color.rgb(27,36,70):Color.WHITE,dark?Color.rgb(32,47,87):Color.rgb(247,249,255),Color.argb(95,126,137,230)));
+        outer.setElevation(dp(3));LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(-1,-2);op.setMargins(0,dp(5),0,dp(5));outer.setLayoutParams(op);
+        TextView icon=new TextView(this);icon.setText(glyph);icon.setTextSize(25);icon.setTypeface(null,android.graphics.Typeface.BOLD);icon.setTextColor(Color.WHITE);icon.setGravity(Gravity.CENTER);icon.setBackground(shape(purple,blue,Color.argb(150,220,225,255)));
+        LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(dp(52),dp(52));ip.setMargins(0,0,dp(13),0);icon.setLayoutParams(ip);outer.addView(icon);
+        LinearLayout labels=new LinearLayout(this);labels.setOrientation(1);labels.setGravity(Gravity.CENTER_VERTICAL);
+        TextView name=text(title,16);name.setTypeface(null,android.graphics.Typeface.BOLD);name.setPadding(0,0,0,dp(2));
+        TextView detail=text(subtitle,11);detail.setTextColor(dark?Color.rgb(170,183,220):Color.rgb(112,123,158));detail.setPadding(0,0,0,0);
+        labels.addView(name);labels.addView(detail);labels.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));outer.addView(labels);
+        TextView arrow=text(lang.equals("fa")?"‹":"›",27);arrow.setTextColor(cyan);arrow.setGravity(Gravity.CENTER);outer.addView(arrow);
+        outer.setOnClickListener(v->action.run());return outer;
+    }
+    void marketPage(){
+        setup(tr("بازار و قیمت‌های روز","Market & Live Rates"));
+        content.addView(text(tr("نرخ‌های بازار آزاد ایران، به تومان","Iran open-market rates in toman"),14));
+        LinearLayout status=card();TextView statusText=text(tr("در حال دریافت آخرین نرخ‌ها…","Fetching latest rates…"),13);status.addView(statusText);content.addView(status);
+        LinearLayout rates=new LinearLayout(this);rates.setOrientation(1);content.addView(rates);
+        content.addView(button(tr("↻  به‌روزرسانی قیمت‌ها","↻  Refresh prices"),()->loadMarketRates(rates,statusText)));
+        content.addView(text(tr("منبع: Iran Market Data • انتشار داده تقریباً هر ۳۰ دقیقه","Source: Iran Market Data • published about every 30 minutes"),11));
+        content.addView(text(tr("قیمت‌ها صرفاً جهت اطلاع‌اند و توصیه خرید یا فروش نیستند.","Prices are informational only, not investment advice."),11));
+        back();loadMarketRates(rates,statusText);
+    }
+    void loadMarketRates(LinearLayout rates,TextView statusText){
+        statusText.setText(tr("در حال دریافت نرخ‌ها…","Loading market rates…"));
+        new Thread(()->{
+            HttpURLConnection connection=null;
+            try{
+                URL url=new URL("https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json");
+                connection=(HttpURLConnection)url.openConnection();connection.setRequestMethod("GET");connection.setConnectTimeout(12000);connection.setReadTimeout(12000);connection.setRequestProperty("Accept","application/json");
+                StringBuilder body=new StringBuilder();
+                try(BufferedReader reader=new BufferedReader(new InputStreamReader(connection.getInputStream(),"UTF-8"))){String line;while((line=reader.readLine())!=null)body.append(line);}
+                JSONObject payload=new JSONObject(body.toString());JSONArray data=payload.optJSONArray("data");JSONObject usd=null,gold=null,coin=null;
+                if(data!=null)for(int i=0;i<data.length();i++){JSONObject item=data.optJSONObject(i);if(item==null)continue;String symbol=item.optString("symbol");if(symbol.equals("USD_IRR_FREE"))usd=item;else if(symbol.equals("GOLD_18K_IRR"))gold=item;else if(symbol.equals("COIN_EMAMI_IRR"))coin=item;}
+                final JSONObject u=usd,g=gold,c=coin;
+                runOnUiThread(()->{rates.removeAllViews();if(u==null||g==null){statusText.setText(tr("داده معتبر دریافت نشد؛ دوباره تلاش کن.","No valid data received. Please retry."));return;}
+                    addMarketCard(rates,"＄",tr("دلار آمریکا • بازار آزاد","US Dollar • Open Market"),u);
+                    addMarketCard(rates,"Au",tr("طلای ۱۸ عیار • هر گرم","18K Gold • per gram"),g);
+                    if(c!=null)addMarketCard(rates,"◇",tr("سکه امامی","Emami Coin"),c);
+                    statusText.setText(tr("آخرین زمان ثبت داده: ","Latest data timestamp: ")+u.optString("timestamp_jalali",u.optString("timestamp","نامشخص")));
+                });
+            }catch(Exception e){runOnUiThread(()->statusText.setText(tr("اتصال برقرار نشد. اینترنت را بررسی و دوباره تلاش کن.","Connection failed. Check internet and retry.")));}
+            finally{if(connection!=null)connection.disconnect();}
+        }).start();
+    }
+    void addMarketCard(LinearLayout target,String symbol,String label,JSONObject item){
+        LinearLayout c=card();LinearLayout top=new LinearLayout(this);top.setOrientation(0);top.setGravity(Gravity.CENTER_VERTICAL);
+        TextView emblem=text(symbol,20);emblem.setGravity(Gravity.CENTER);emblem.setTextColor(Color.WHITE);emblem.setBackground(shape(purple,blue,Color.argb(120,220,225,255)));
+        LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(dp(48),dp(48));ep.setMargins(0,0,dp(12),0);emblem.setLayoutParams(ep);top.addView(emblem);
+        LinearLayout labels=new LinearLayout(this);labels.setOrientation(1);TextView title=text(label,14);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setPadding(0,0,0,dp(3));labels.addView(title);
+        TextView price=text(moneyLong(item.optLong("price"))+" "+tr("تومان","Toman"),21);price.setTextColor(dark?Color.rgb(190,177,255):Color.rgb(83,71,190));price.setTypeface(null,android.graphics.Typeface.BOLD);price.setPadding(0,0,0,0);labels.addView(price);top.addView(labels);c.addView(top);
+        double change=item.optDouble("change_pct",0);TextView movement=text(tr("تغییر نسبت به نرخ قبلی: ","Change vs previous: ")+String.format(Locale.US,"%+.2f%%",change),12);
+        movement.setTextColor(change>0?Color.rgb(30,170,115):(change<0?Color.rgb(225,105,105):fg()));c.addView(movement);target.addView(c);
+    }
+    String moneyLong(long n){return String.format(Locale.US,"%,d",n);}
+
     void calendarPage(){
         setup(tr("تقویم شمسی","Persian calendar"));
         content.addView(text(tr("تاریخ‌ها بر پایه تقویم هجری شمسی نمایش داده می‌شوند.","Dates are displayed using the Solar Hijri calendar."),15));
