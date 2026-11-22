@@ -42,7 +42,7 @@ public class MainActivity extends Activity {
         super.onCreate(b);
         prefs=getSharedPreferences("goal_data",MODE_PRIVATE);
         lang=prefs.getString("language","fa");
-        dark=prefs.getBoolean("dark",false);
+        dark=prefs.getBoolean("dark",true);
         today=date();
         goals=load("goals"); tasks=load("tasks"); activities=load("activities");
         transactions=load("transactions"); debts=load("debts"); assets=load("assets");
@@ -133,46 +133,75 @@ public class MainActivity extends Activity {
     void heading(String s){content.addView(text(s,18));}
     void back(){content.addView(button(tr("⌂ خانه","⌂ Home"),()->home()));}
     void home(){
-        setup("Goal ✦");
-        LinearLayout quote=card();
-        quote.setBackground(shape(dark?Color.rgb(69,48,139):Color.rgb(107,91,220),dark?Color.rgb(31,76,145):Color.rgb(67,143,222),Color.argb(130,220,225,255)));
-        TextView quoteLabel=text(tr("✨ جمله انگیزشی امروز","✨ YOUR DAILY INSPIRATION"),12);
-        quoteLabel.setTextColor(Color.rgb(225,229,255));
-        quoteLabel.setTypeface(null,android.graphics.Typeface.BOLD);
-        TextView quoteText=text("“"+dailyMotivation+"”",19);
-        quoteText.setTextColor(Color.WHITE);
-        quoteText.setTypeface(null,android.graphics.Typeface.BOLD);
-        quote.addView(quoteLabel);quote.addView(quoteText);
-        LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(-1,-2);qp.setMargins(0,dp(4),0,dp(12));quote.setLayoutParams(qp);
-        content.addView(quote);
-        content.addView(text(tr("به Goal خوش آمدی!","Welcome to Goal!"),21));
-        content.addView(text(tr("قدم‌های کوچک امروز، موفقیت‌های بزرگ فردا.","Small steps today, big achievements tomorrow."),15));
-        content.addView(text("📆  "+persianDate(),15));
-        content.addView(navItem("◷",tr("تقویم شمسی","Persian calendar"),tr("برنامه‌ریزی بر پایه تقویم ایرانی","Plan with the Persian calendar"),()->calendarPage()));
-        content.addView(navItem("◎",tr("اهداف من","My Goals"),tr("مسیر پیشرفت و دستاوردها","Your progress and milestones"),()->goalPage()));
-        content.addView(navItem("▤",tr("برنامه امروز","Today's Plan"),tr("کارهای مهم امروزت","Your priorities for today"),()->taskPage()));
-        content.addView(navItem("✧",tr("فعالیت‌های من","My Activities"),tr("عادت‌ها و سنجه‌های شخصی","Your custom activities"),()->activityPage()));
-        content.addView(navItem("◈",tr("امور مالی","Finance"),tr("مدیریت هوشمند دخل‌وخرج","Personal money management"),()->financePage()));
-        content.addView(navItem("↗",tr("بازار و قیمت‌ها","Market & Rates"),tr("قیمت دلار، طلا و سکه به تومان","USD, gold and coin prices in toman"),()->marketPage()));
-        content.addView(navItem("▥",tr("گزارش‌ها","Reports"),tr("مرور عملکرد و روند پیشرفت","Review your performance"),()->reports()));
-        content.addView(navItem("⚙",tr("تنظیمات","Settings"),tr("شخصی‌سازی تجربه Goal","Personalize your Goal experience"),()->settings()));
-        int done=0;for(int i=0;i<tasks.length();i++)if(tasks.optJSONObject(i)!=null&&tasks.optJSONObject(i).optBoolean("done"))done++;
-        content.addView(text(tr("کارهای انجام‌شده امروز: ","Tasks completed today: ")+done+" / "+tasks.length(),14));
+        setup("GOAL");
+        int done=0;for(int i=0;i<tasks.length();i++){JSONObject o=tasks.optJSONObject(i);if(o!=null&&o.optBoolean("done"))done++;}
+        int goalDone=0,goalTotal=0;for(int i=0;i<goals.length();i++){JSONObject o=goals.optJSONObject(i);if(o!=null){goalTotal+=Math.max(1,o.optInt("target",1));goalDone+=Math.min(Math.max(0,o.optInt("value",0)),Math.max(1,o.optInt("target",1)));}}
+        int percent=goalTotal>0?(int)(100f*goalDone/goalTotal):(tasks.length()>0?(int)(100f*done/tasks.length()):0);
+        LinearLayout top=new LinearLayout(this);top.setOrientation(0);top.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout brand=new LinearLayout(this);brand.setOrientation(1);brand.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+        TextView over=text("✦  GOAL / PERSONAL GROWTH",10);over.setTextColor(cyan);over.setTypeface(null,android.graphics.Typeface.BOLD);
+        TextView welcome=text(tr("سلام، به فضای پیشرفتت خوش اومدی","Welcome to your growth space"),21);welcome.setTypeface(null,android.graphics.Typeface.BOLD);
+        TextView dateText=text(persianDate(),12);dateText.setTextColor(dark?Color.rgb(159,174,213):Color.GRAY);
+        brand.addView(over);brand.addView(welcome);brand.addView(dateText);top.addView(brand);
+        TextView avatar=text("G",20);avatar.setTextColor(Color.WHITE);avatar.setGravity(Gravity.CENTER);avatar.setTypeface(null,android.graphics.Typeface.BOLD);avatar.setBackground(shape(purple,blue,Color.argb(170,220,220,255)));
+        LinearLayout.LayoutParams avp=new LinearLayout.LayoutParams(dp(48),dp(48));avatar.setLayoutParams(avp);top.addView(avatar);content.addView(top);
+        LinearLayout hero=card();hero.setPadding(dp(18),dp(18),dp(18),dp(18));
+        hero.setBackground(shape(Color.rgb(42,39,105),Color.rgb(22,65,119),Color.argb(150,116,140,255)));
+        TextView heroTag=text(tr("نمای کلی عملکرد","YOUR OVERVIEW"),11);heroTag.setTextColor(Color.rgb(179,196,255));heroTag.setTypeface(null,android.graphics.Typeface.BOLD);hero.addView(heroTag);
+        LinearLayout ringRow=new LinearLayout(this);ringRow.setGravity(Gravity.CENTER_VERTICAL);ringRow.setOrientation(0);
+        ProgressRing ring=new ProgressRing(this,percent);LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(124),dp(124));rp.setMargins(dp(4),dp(8),dp(18),dp(4));ringRow.addView(ring,rp);
+        LinearLayout summary=new LinearLayout(this);summary.setOrientation(1);summary.setGravity(Gravity.CENTER_VERTICAL);
+        TextView pct=text(percent+"%",29);pct.setTextColor(Color.WHITE);pct.setTypeface(null,android.graphics.Typeface.BOLD);pct.setPadding(0,0,0,dp(2));
+        TextView cap=text(tr("میزان پیشرفت کلی","OVERALL PROGRESS"),10);cap.setTextColor(Color.rgb(194,207,255));cap.setPadding(0,0,0,dp(9));
+        TextView quote=text(dailyMotivation,13);quote.setTextColor(Color.WHITE);quote.setPadding(0,0,0,0);
+        summary.addView(pct);summary.addView(cap);summary.addView(quote);ringRow.addView(summary,new LinearLayout.LayoutParams(0,-2,1));hero.addView(ringRow);
+        content.addView(hero);
+        TextView quick=text(tr("خلاصه امروز","TODAY AT A GLANCE"),13);quick.setTypeface(null,android.graphics.Typeface.BOLD);quick.setTextColor(cyan);content.addView(quick);
+        LinearLayout stats=new LinearLayout(this);stats.setOrientation(0);
+        stats.addView(statCard("◎",String.valueOf(goals.length()),tr("هدف فعال","GOALS")),new LinearLayout.LayoutParams(0,-2,1));
+        stats.addView(statCard("✓",done+"/"+tasks.length(),tr("کار انجام‌شده","TASKS")),new LinearLayout.LayoutParams(0,-2,1));
+        stats.addView(statCard("✧",String.valueOf(activities.length()),tr("فعالیت شخصی","TRACKERS")),new LinearLayout.LayoutParams(0,-2,1));
+        content.addView(stats);
+        TextView section=text(tr("فضای کاری تو","YOUR WORKSPACE"),13);section.setTypeface(null,android.graphics.Typeface.BOLD);section.setTextColor(cyan);content.addView(section);
+        LinearLayout row1=new LinearLayout(this);row1.setOrientation(0);
+        row1.addView(navItem("◎",tr("اهداف من","My Goals"),tr("مسیر رشد و دستاوردها","Milestones"),()->goalPage()),new LinearLayout.LayoutParams(0,-2,1));
+        row1.addView(navItem("▤",tr("برنامه امروز","Today"),tr("اولویت‌های روزانه","Daily priorities"),()->taskPage()),new LinearLayout.LayoutParams(0,-2,1));content.addView(row1);
+        LinearLayout row2=new LinearLayout(this);row2.setOrientation(0);
+        row2.addView(navItem("✧",tr("فعالیت‌ها","Activities"),tr("ردیابی دلخواه","Your trackers"),()->activityPage()),new LinearLayout.LayoutParams(0,-2,1));
+        row2.addView(navItem("◷",tr("تقویم شمسی","Calendar"),tr("برنامه‌ریزی ایرانی","Persian calendar"),()->calendarPage()),new LinearLayout.LayoutParams(0,-2,1));content.addView(row2);
+        LinearLayout row3=new LinearLayout(this);row3.setOrientation(0);
+        row3.addView(navItem("◈",tr("امور مالی","Finance"),tr("مدیریت پول","Money manager"),()->financePage()),new LinearLayout.LayoutParams(0,-2,1));
+        row3.addView(navItem("↗",tr("بازار و قیمت‌ها","Market"),tr("دلار و طلا","USD & Gold"),()->marketPage()),new LinearLayout.LayoutParams(0,-2,1));content.addView(row3);
+        LinearLayout row4=new LinearLayout(this);row4.setOrientation(0);
+        row4.addView(navItem("▥",tr("گزارش‌ها","Reports"),tr("تحلیل پیشرفت","Insights"),()->reports()),new LinearLayout.LayoutParams(0,-2,1));
+        row4.addView(navItem("⚙",tr("تنظیمات","Settings"),tr("شخصی‌سازی","Preferences"),()->settings()),new LinearLayout.LayoutParams(0,-2,1));content.addView(row4);
+    }
+    LinearLayout statCard(String glyph,String value,String label){
+        LinearLayout c=card();c.setPadding(dp(8),dp(10),dp(8),dp(10));c.setGravity(Gravity.CENTER);
+        TextView g=text(glyph,19);g.setTextColor(cyan);g.setGravity(Gravity.CENTER);g.setPadding(0,0,0,dp(3));
+        TextView v=text(value,19);v.setTextColor(Color.WHITE);v.setTypeface(null,android.graphics.Typeface.BOLD);v.setGravity(Gravity.CENTER);v.setPadding(0,0,0,dp(2));
+        TextView l=text(label,9);l.setTextColor(dark?Color.rgb(172,186,224):Color.GRAY);l.setGravity(Gravity.CENTER);l.setPadding(0,0,0,0);
+        c.addView(g);c.addView(v);c.addView(l);return c;
+    }
+    class ProgressRing extends View{
+        android.graphics.Paint p=new android.graphics.Paint(3);int value;
+        ProgressRing(Context c,int v){super(c);value=Math.max(0,Math.min(100,v));setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
+        @Override protected void onDraw(android.graphics.Canvas canvas){super.onDraw(canvas);float cx=getWidth()/2f,cy=getHeight()/2f,r=Math.min(cx,cy)-dp(12);
+            p.setStyle(android.graphics.Paint.Style.STROKE);p.setStrokeWidth(dp(9));p.setStrokeCap(android.graphics.Paint.Cap.ROUND);p.setColor(Color.argb(65,220,225,255));canvas.drawCircle(cx,cy,r,p);
+            p.setShader(new android.graphics.LinearGradient(0,0,getWidth(),getHeight(),cyan,purple,android.graphics.Shader.TileMode.CLAMP));canvas.drawArc(cx-r,cy-r,cx+r,cy+r,-90,360f*value/100,false,p);p.setShader(null);
+            p.setStyle(android.graphics.Paint.Style.FILL);p.setColor(Color.WHITE);p.setTextAlign(android.graphics.Paint.Align.CENTER);p.setTypeface(android.graphics.Typeface.create("sans-serif-medium",1));p.setTextSize(dp(24));canvas.drawText(value+"%",cx,cy+dp(8),p);
+        }
     }
 
     LinearLayout navItem(String glyph,String title,String subtitle,Runnable action){
-        LinearLayout outer=new LinearLayout(this);outer.setOrientation(0);outer.setGravity(Gravity.CENTER_VERTICAL);
-        outer.setPadding(dp(13),dp(12),dp(13),dp(12));
-        outer.setBackground(shape(dark?Color.rgb(27,36,70):Color.WHITE,dark?Color.rgb(32,47,87):Color.rgb(247,249,255),Color.argb(95,126,137,230)));
-        outer.setElevation(dp(3));LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(-1,-2);op.setMargins(0,dp(5),0,dp(5));outer.setLayoutParams(op);
-        TextView icon=new TextView(this);icon.setText(glyph);icon.setTextSize(25);icon.setTypeface(null,android.graphics.Typeface.BOLD);icon.setTextColor(Color.WHITE);icon.setGravity(Gravity.CENTER);icon.setBackground(shape(purple,blue,Color.argb(150,220,225,255)));
-        LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(dp(52),dp(52));ip.setMargins(0,0,dp(13),0);icon.setLayoutParams(ip);outer.addView(icon);
-        LinearLayout labels=new LinearLayout(this);labels.setOrientation(1);labels.setGravity(Gravity.CENTER_VERTICAL);
-        TextView name=text(title,16);name.setTypeface(null,android.graphics.Typeface.BOLD);name.setPadding(0,0,0,dp(2));
-        TextView detail=text(subtitle,11);detail.setTextColor(dark?Color.rgb(170,183,220):Color.rgb(112,123,158));detail.setPadding(0,0,0,0);
-        labels.addView(name);labels.addView(detail);labels.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));outer.addView(labels);
-        TextView arrow=text(lang.equals("fa")?"‹":"›",27);arrow.setTextColor(cyan);arrow.setGravity(Gravity.CENTER);outer.addView(arrow);
-        outer.setOnClickListener(v->action.run());return outer;
+        LinearLayout outer=new LinearLayout(this);outer.setOrientation(1);outer.setGravity(Gravity.CENTER_VERTICAL);
+        outer.setPadding(dp(12),dp(12),dp(12),dp(12));outer.setBackground(shape(Color.rgb(29,36,76),Color.rgb(20,49,83),Color.argb(100,104,125,220)));outer.setElevation(dp(3));
+        LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(0,-2,1);op.setMargins(dp(3),dp(5),dp(3),dp(5));outer.setLayoutParams(op);
+        TextView icon=new TextView(this);icon.setText(glyph);icon.setTextSize(24);icon.setTypeface(null,android.graphics.Typeface.BOLD);icon.setTextColor(Color.WHITE);icon.setGravity(Gravity.CENTER);icon.setBackground(shape(purple,blue,Color.argb(150,220,225,255)));
+        LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(dp(45),dp(45));ip.setMargins(0,0,0,dp(8));icon.setLayoutParams(ip);outer.addView(icon);
+        TextView name=text(title,14);name.setTypeface(null,android.graphics.Typeface.BOLD);name.setTextColor(Color.WHITE);name.setPadding(0,0,0,dp(2));
+        TextView detail=text(subtitle,10);detail.setTextColor(Color.rgb(161,178,218));detail.setPadding(0,0,0,0);
+        outer.addView(name);outer.addView(detail);outer.setOnClickListener(v->action.run());return outer;
     }
     void marketPage(){
         setup(tr("بازار و قیمت‌های روز","Market & Live Rates"));
